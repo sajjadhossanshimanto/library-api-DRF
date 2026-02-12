@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Author, Book, Member, BorrowRecord
+from django.contrib.auth.models import User
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -104,3 +105,35 @@ class BorrowRecordDetailSerializer(serializers.ModelSerializer):
             validated_data['book_id'] = book_id
             validated_data['member_id'] = member_id
         return super().create(validated_data)
+
+
+# ============ Djoser Custom Serializers ============
+
+class UserCreateSerializer(serializers.ModelSerializer):
+    """
+    Custom serializer for user registration with email, password, and name fields.
+    """
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name']
+        read_only_fields = ['id']
+
+    def create(self, validated_data):
+        """Create user with hashed password"""
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Custom serializer for retrieving user information.
+    """
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'is_staff']
+        read_only_fields = ['id']
