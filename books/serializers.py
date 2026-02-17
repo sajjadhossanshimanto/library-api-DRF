@@ -119,6 +119,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name']
         read_only_fields = ['id']
+        ref_name = 'CustomUserCreateSerializer'
 
     def create(self, validated_data):
         """Create user with hashed password"""
@@ -137,3 +138,4 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'username', 'first_name', 'last_name', 'is_staff']
         read_only_fields = ['id']
+        ref_name = 'CustomUserSerializer'
