@@ -10,7 +10,6 @@ dependencies = [
     "djangorestframework-simplejwt>=5.5.1",
     "djoser>=2.3.3",
     "drf-yasg>=1.21.14",
-    "psycopg2>=2.9.11",
     "psycopg2-binary>=2.9.11",
     "python-decouple>=3.8",
 ]
