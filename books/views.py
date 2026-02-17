@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db import models
@@ -15,12 +16,14 @@ from .serializers import (
     BorrowRecordSerializer,
     BorrowRecordDetailSerializer
 )
+from .permissions import IsLibrarianOrReadOnly, CanBorrowAndReturn
 
 
 class AuthorViewSet(viewsets.ModelViewSet):
-    
+    """ViewSet for managing book authors. Librarians have full access, members can view."""
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer
+    permission_classes = [IsAuthenticated, IsLibrarianOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'biography']
     ordering_fields = ['name', 'date_created']
@@ -28,8 +31,9 @@ class AuthorViewSet(viewsets.ModelViewSet):
 
 
 class BookViewSet(viewsets.ModelViewSet):
-    
+    """ViewSet for managing library books. Members can view and search, librarians have full access."""
     queryset = Book.objects.all().select_related('author')
+    permission_classes = [IsAuthenticated, IsLibrarianOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'is_available']
     search_fields = ['title', 'isbn', 'author__name', 'category']
@@ -37,19 +41,19 @@ class BookViewSet(viewsets.ModelViewSet):
     ordering = ['title']
 
     def get_serializer_class(self):
-        
+        """Return detailed serializer for single book, list serializer for listings"""
         if self.action == 'list':
             return BookListSerializer
         return BookDetailSerializer
 
     def perform_create(self, serializer):
-        
+        """Create book and update availability"""
         book = serializer.save()
         book.update_availability()
 
     @action(detail=True, methods=['get'])
     def availability(self, request, pk=None):
-        
+        """Get the availability status of a book."""
         book = self.get_object()
         return Response({
             'id': book.id,
@@ -62,7 +66,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def search(self, request):
-        
+        """Search for books by title, author, ISBN, or category (q parameter required)."""
         query = request.query_params.get('q', '')
         if not query:
             return Response(
@@ -81,22 +85,23 @@ class BookViewSet(viewsets.ModelViewSet):
 
 
 class MemberViewSet(viewsets.ModelViewSet):
-    
+    """ViewSet for managing library members. Members can view, librarians have full access."""
     queryset = Member.objects.all().prefetch_related('borrow_records')
+    permission_classes = [IsAuthenticated, IsLibrarianOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'email']
     ordering_fields = ['name', 'membership_date', 'is_active']
     ordering = ['name']
 
     def get_serializer_class(self):
-        
+        """Return detailed serializer for single member, list serializer for listings"""
         if self.action == 'list':
             return MemberListSerializer
         return MemberDetailSerializer
 
     @action(detail=True, methods=['get'])
     def borrowing_history(self, request, pk=None):
-        
+        """Get a member's complete borrowing history."""
         member = self.get_object()
         borrow_records = member.borrow_records.all()
         serializer = BorrowRecordDetailSerializer(borrow_records, many=True)
@@ -109,7 +114,7 @@ class MemberViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def active_loans(self, request, pk=None):
-        
+        """Get a member's currently active loans."""
         member = self.get_object()
         active_loans = member.borrow_records.filter(is_returned=False)
         serializer = BorrowRecordDetailSerializer(active_loans, many=True)
@@ -117,22 +122,23 @@ class MemberViewSet(viewsets.ModelViewSet):
 
 
 class BorrowRecordViewSet(viewsets.ModelViewSet):
-    
+    """ViewSet for managing book borrow records. Members can borrow/return books, librarians have full access."""
     queryset = BorrowRecord.objects.all().select_related('book', 'member')
+    permission_classes = [IsAuthenticated, CanBorrowAndReturn]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['member', 'book', 'is_returned']
     ordering_fields = ['borrow_date', 'due_date']
     ordering = ['-borrow_date']
 
     def get_serializer_class(self):
-        
+        """Always use detailed serializer for borrow records"""
         if self.action in ['list', 'create']:
             return BorrowRecordDetailSerializer
         return BorrowRecordDetailSerializer
 
     @action(detail=False, methods=['post'])
     def borrow(self, request):
-        
+        """Create a borrow record for a book (requires book_id and member_id)."""
         serializer = BorrowRecordSerializer(data=request.data)
         if serializer.is_valid():
             try:
@@ -167,7 +173,7 @@ class BorrowRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def return_book(self, request, pk=None):
-        
+        """Mark a borrowed book as returned."""
         borrow_record = self.get_object()
 
         if borrow_record.is_returned:
@@ -184,7 +190,7 @@ class BorrowRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def overdue(self, request):
-        
+        """Get all overdue books."""
         today = timezone.now().date()
         overdue_records = BorrowRecord.objects.filter(
             is_returned=False,
@@ -196,7 +202,7 @@ class BorrowRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def member_loans(self, request):
-        
+        """Get all loans for a member (member_id parameter required)."""
         member_id = request.query_params.get('member_id')
         if not member_id:
             return Response(
