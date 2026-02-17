@@ -1,9 +1,3 @@
-"""
-Custom permission classes for the Library Management System.
-Implements role-based access control using Django Groups:
-- Librarians: Full access to all resources (create, read, update, delete)
-- Members: Can view books and borrow/return books only
-"""
 from rest_framework import permissions
 
 
