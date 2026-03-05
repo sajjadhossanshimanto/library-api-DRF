@@ -4,6 +4,11 @@ from datetime import timedelta
 from django.utils import timezone
 
 
+def get_cloudinary_storage():
+    from cloudinary_storage.storage import MediaCloudinaryStorage
+    return MediaCloudinaryStorage()
+
+
 class Author(models.Model):
     name = models.CharField(max_length=255, unique=True)
     biography = models.TextField(blank=True, null=True)
@@ -22,6 +27,7 @@ class Book(models.Model):
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='books')
     category = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+    cover_image = models.ImageField(upload_to='books/covers/', storage=get_cloudinary_storage, blank=True, null=True)
     total_copies = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     available_copies = models.PositiveIntegerField(default=0)
     is_available = models.BooleanField(default=True)
