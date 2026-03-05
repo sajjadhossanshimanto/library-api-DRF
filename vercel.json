@@ -11,7 +11,7 @@
     "routes": [
       {
         "src": "/static/(.*)",
-        "dest": "/staticfiles/$1"
+        "dest": "library_api/wsgi.py"
       },
       {
         "src": "/(.*)",
