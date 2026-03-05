@@ -1,10 +1,15 @@
 {
+    "buildCommand": "python manage.py collectstatic --noinput",
     "builds": [{
       "src": "library_api/wsgi.py",
       "use": "@vercel/python",
       "config": { "maxLambdaSize": "15mb", "runtime": "python3.11.3" }
     }],
     "routes": [
+      {
+        "src": "/static/(.*)",
+        "dest": "/staticfiles/$1"
+      },
       {
         "src": "/(.*)",
         "dest": "library_api/wsgi.py"
